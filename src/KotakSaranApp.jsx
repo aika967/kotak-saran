@@ -1,4 +1,4 @@
-// src/KotakSaranApp.jsx (VERSI LOCAL STORAGE)
+// src/KotakSaranApp.jsx
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -10,8 +10,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Impor Supabase Client DIHAPUS
-
 const ROLES = {
   STUDENT: "mahasiswa",
   ADMIN: "admin",
@@ -22,7 +20,7 @@ export default function KotakSaranApp() {
   const [user, setUser] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [view, setView] = useState("home");
-  const [loading, setLoading] = useState(false); // Loading state dipertahankan, tapi tidak benar-benar digunakan untuk local storage
+  const [loading, setLoading] = useState(false); 
 
   // akun demo
   const [users] = useState([
@@ -43,7 +41,7 @@ export default function KotakSaranApp() {
   ]);
 
   /* ---------------------------
-      LOCAL STORAGE HANDLER (DIPULIHKAN)
+      LOCAL STORAGE HANDLER 
   --------------------------- */
 
   // FUNGSI MUAT DATA DARI LOCAL STORAGE (SELECT)
@@ -53,8 +51,8 @@ export default function KotakSaranApp() {
     if (saved) {
       setSuggestions(JSON.parse(saved));
     } else {
-      setSuggestions([]);
-    }
+      setSuggestions([]);
+    }
     setLoading(false);
   }, []);
 
@@ -84,7 +82,6 @@ export default function KotakSaranApp() {
           {view === "submit" && (
             <SubmitForm
               setView={setView}
-              // Setelah berhasil SUBMIT, panggil fungsi muat ulang
               onSubmitSuccess={fetchSuggestions} 
             />
           )}
@@ -96,6 +93,7 @@ export default function KotakSaranApp() {
               onLogin={(u) => {
                 setUser(u);
                 setView("dashboard");
+                fetchSuggestions(); 
               }}
             />
           )}
@@ -106,7 +104,6 @@ export default function KotakSaranApp() {
               {!loading && user.role === ROLES.ADMIN && (
                 <AdminDashboard
                   suggestions={suggestions}
-                  // Panggil fungsi local storage update
                   updateSuggestionData={updateSuggestionData}
                   fetchSuggestions={fetchSuggestions}
                 />
@@ -120,7 +117,7 @@ export default function KotakSaranApp() {
         </main>
 
         <footer className="mt-8 text-center text-xs text-gray-500">
-          Menggunakan LOCAL STORAGE
+          
         </footer>
       </div>
     </div>
@@ -128,7 +125,7 @@ export default function KotakSaranApp() {
 }
 
 /* ---------------------------
-   Header, Home, Login (TIDAK BERUBAH)
+   Header (DIPERBARUI)
 --------------------------- */
 function Header({ user, onLogout, setView }) {
   return (
@@ -159,13 +156,20 @@ function Header({ user, onLogout, setView }) {
           </button>
         ) : null}
 
-        {/* Ganti dengan logo Anda */}
-        {/* <img src="/logo.png" alt="logo" className="w-12 h-12 object-contain" /> */}
+        {/* 🚀 LOGO KAMPUS DI SEBELAH KANAN ATAS */}
+        <img 
+            src="/logo.png" 
+            alt="Logo Kampus" 
+            className="w-12 h-12 object-contain" 
+        />
       </div>
     </div>
   );
 }
 
+/* ---------------------------
+   Home
+--------------------------- */
 function Home({ setView, user }) {
   return (
     <div className="flex flex-col items-center justify-center py-16">
@@ -203,68 +207,6 @@ function Home({ setView, user }) {
   );
 }
 
-function Login({ users, onLogin, setView }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState(null);
-
-  const handle = (e) => {
-    e.preventDefault();
-
-    const u = users.find(
-      (x) => x.username === username && x.password === password
-    );
-
-    if (!u) {
-      setErr("Username atau password salah.");
-      return;
-    }
-
-    onLogin(u);
-  };
-
-  return (
-    <form onSubmit={handle} className="max-w-sm space-y-3">
-      <h2 className="text-lg font-medium">Login Admin / Pimpinan</h2>
-
-      <div>
-        <label className="block text-sm">Username</label>
-        <input
-          className="w-full border rounded px-3 py-2"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm">Password</label>
-        <input
-          type="password"
-          className="w-full border rounded px-3 py-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <button className="px-4 py-2 bg-indigo-600 text-white rounded">
-          Login
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setView("home")}
-          className="px-4 py-2 bg-gray-200 rounded"
-        >
-          ← Kembali ke Beranda
-        </button>
-      </div>
-
-      {err && <p className="text-red-600 text-sm">{err}</p>}
-    </form>
-  );
-}
-
 /* ---------------------------
    SubmitForm (LOCAL STORAGE)
 --------------------------- */
@@ -275,9 +217,9 @@ function SubmitForm({ onSubmitSuccess, setView }) {
   const [isi, setIsi] = useState("");
   const [anon, setAnon] = useState(true);
   const [message, setMessage] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Dipertahankan untuk tombol
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  const handleSend = (e) => { // DIKEMBALIKAN menjadi fungsi NON-ASYNC
+  const handleSend = (e) => { 
     e.preventDefault();
 
     if (!judul.trim() || !isi.trim()) {
@@ -285,11 +227,11 @@ function SubmitForm({ onSubmitSuccess, setView }) {
       return;
     }
 
-    setIsSubmitting(true);
-    setMessage(null);
+    setIsSubmitting(true);
+    setMessage(null);
 
     const newItem = {
-      id: Date.now(), // Menggunakan ID berbasis waktu lokal
+      id: Date.now(), 
       nama: anon ? "Anonim" : nama || "Anonim",
       kategori,
       judul,
@@ -298,13 +240,13 @@ function SubmitForm({ onSubmitSuccess, setView }) {
       tanggal: new Date().toISOString(), 
     };
 
-    // --- LOGIKA LOCAL STORAGE INSERT (DIPULIHKAN) ---
+    // --- LOGIKA LOCAL STORAGE INSERT ---
     const existing = JSON.parse(localStorage.getItem("suggestions") || "[]");
     const updated = [newItem, ...existing];
 
     localStorage.setItem("suggestions", JSON.stringify(updated));
 
-    // Panggil fungsi muat ulang
+    // Panggil fungsi muat ulang
     if (onSubmitSuccess) { 
       onSubmitSuccess(); 
     }
@@ -317,7 +259,7 @@ function SubmitForm({ onSubmitSuccess, setView }) {
     setIsi("");
     setAnon(true);
 
-    setIsSubmitting(false);
+    setIsSubmitting(false);
   };
 
   return (
@@ -562,7 +504,6 @@ function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions })
             Ekspor CSV
           </button>
         </div>
-        
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -644,6 +585,7 @@ function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions })
           </tbody>
         </table>
       </div>
+      
     </div>
   );
 }
