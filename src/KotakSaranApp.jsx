@@ -1,5 +1,5 @@
-// src/KotakSaranApp.jsx
-import React, { useState, useEffect } from "react";
+// src/KotakSaranApp.jsx (VERSI SUPABASE)
+import React, { useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -8,6 +8,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+
+// Impor Supabase Client
+import { supabase } from "./supabaseClient";
 
 const ROLES = {
   STUDENT: "mahasiswa",
@@ -19,6 +22,7 @@ export default function KotakSaranApp() {
   const [user, setUser] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [view, setView] = useState("home");
+  const [loading, setLoading] = useState(false); // Tambah state loading
 
   // akun demo
   const [users] = useState([
@@ -39,22 +43,39 @@ export default function KotakSaranApp() {
   ]);
 
   /* ---------------------------
-     LOCAL STORAGE HANDLER
+      SUPABASE HANDLER (Menggantikan LOCAL STORAGE)
   --------------------------- */
 
-  function loadData() {
-    const saved = localStorage.getItem("suggestions");
-    if (saved) setSuggestions(JSON.parse(saved));
-  }
+  // FUNGSI MENGAMBIL DATA DARI SUPABASE
+  const fetchSuggestions = useCallback(async () => {
+    setLoading(true);
+    // Mengambil semua data dari tabel 'saran'. Diurutkan berdasarkan 'tanggal' (atau 'created_at' jika Anda menggunakannya).
+    const { data, error } = await supabase
+      .from('saran')
+      .select('*')
+      .order('tanggal', { ascending: false }); // Sesuaikan dengan kolom tanggal di Supabase
 
-  function saveData(newData) {
-    setSuggestions(newData);
-    localStorage.setItem("suggestions", JSON.stringify(newData));
+    if (error) {
+      console.error("Gagal memuat saran dari Supabase:", error);
+    } else {
+      // Pastikan data yang diambil sesuai dengan format yang diharapkan: id, nama, kategori, judul, isi, status, tanggal
+      setSuggestions(data);
+    }
+    setLoading(false);
+  }, []);
+
+  // FUNGSI UNTUK MENGIRIM / MENGUPDATE DATA (dipakai oleh Admin)
+  // Catatan: SubmitForm akan memiliki logikanya sendiri untuk INSERT data baru
+  async function updateSuggestionData(updatedList) {
+    setSuggestions(updatedList);
+    // Untuk admin, kita hanya perlu memuat ulang data atau mengirimkan perubahan spesifik.
+    // Tapi untuk kesederhanaan, kita hanya memuat ulang daftar.
+    await fetchSuggestions();
   }
 
   useEffect(() => {
-    loadData();
-  }, []);
+    fetchSuggestions();
+  }, [fetchSuggestions]);
 
   const logout = () => {
     setUser(null);
@@ -64,7 +85,6 @@ export default function KotakSaranApp() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-5xl mx-auto bg-white shadow-md rounded-2xl p-6">
-
         <Header user={user} onLogout={logout} setView={setView} />
 
         <main className="mt-6">
@@ -73,7 +93,8 @@ export default function KotakSaranApp() {
           {view === "submit" && (
             <SubmitForm
               setView={setView}
-              onSubmit={(newList) => saveData(newList)}
+              // Setelah berhasil SUBMIT ke Supabase, panggil fetchSuggestions untuk update data di state utama
+              onSubmitSuccess={fetchSuggestions} 
             />
           )}
 
@@ -90,14 +111,16 @@ export default function KotakSaranApp() {
 
           {view === "dashboard" && user && (
             <>
-              {user.role === ROLES.ADMIN && (
+              {loading && <p className="text-center text-indigo-600">Memuat data...</p>}
+              {!loading && user.role === ROLES.ADMIN && (
                 <AdminDashboard
                   suggestions={suggestions}
-                  saveData={saveData}
+                  updateSuggestionData={updateSuggestionData}
+                  fetchSuggestions={fetchSuggestions}
                 />
               )}
 
-              {user.role === ROLES.LEADER && (
+              {!loading && user.role === ROLES.LEADER && (
                 <LeaderDashboard suggestions={suggestions} />
               )}
             </>
@@ -105,7 +128,7 @@ export default function KotakSaranApp() {
         </main>
 
         <footer className="mt-8 text-center text-xs text-gray-500">
-          
+          Menggunakan Vercel (Frontend) dan Supabase (Backend/Database)
         </footer>
       </div>
     </div>
@@ -414,8 +437,8 @@ function Login({ users, onLogin, setView }) {
 /* ---------------------------
    Admin Dashboard
 --------------------------- */
-function AdminDashboard({ suggestions, saveData }) {
-  // statistik
+function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions }) {
+  // Statistik tidak berubah
   const stats = suggestions.reduce((acc, s) => {
     acc[s.kategori] = (acc[s.kategori] || 0) + 1;
     return acc;
@@ -426,21 +449,39 @@ function AdminDashboard({ suggestions, saveData }) {
     value: stats[k],
   }));
 
-  // update status
-  function updateStatus(id, status) {
-    const updated = suggestions.map((s) =>
-      s.id === id ? { ...s, status } : s
-    );
-    saveData(updated);
+  // FUNGSI UNTUK UPDATE STATUS DI SUPABASE
+  async function updateStatus(id, status) {
+    const { error } = await supabase
+      .from('saran')
+      .update({ status: status }) // Hanya update kolom status
+      .eq('id', id); // Di mana id sama dengan id saran
+
+    if (error) {
+      console.error("Gagal mengupdate status:", error);
+    } else {
+      // Setelah berhasil update, ambil ulang data terbaru
+      await fetchSuggestions(); 
+    }
   }
 
-  // hapus
-  function removeRow(id) {
-    const updated = suggestions.filter((s) => s.id !== id);
-    saveData(updated);
+  // FUNGSI UNTUK MENGHAPUS DI SUPABASE
+  async function removeRow(id) {
+    if (!window.confirm("Yakin ingin menghapus saran ini?")) return;
+
+    const { error } = await supabase
+      .from('saran')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error("Gagal menghapus saran:", error);
+    } else {
+      // Setelah berhasil hapus, ambil ulang data terbaru
+      await fetchSuggestions();
+    }
   }
 
-  // export CSV
+  // export CSV (TIDAK BERUBAH)
   const exportCSV = () => {
     const header = [
       "id",
@@ -546,7 +587,6 @@ function AdminDashboard({ suggestions, saveData }) {
                     </button>
                   </div>
                 </td>
-
               </tr>
             ))}
           </tbody>
