@@ -105,7 +105,7 @@ export default function KotakSaranApp() {
         </main>
 
         <footer className="mt-8 text-center text-xs text-gray-500">
-          Kotak Saran Mahasiswa — Mode Lokal
+          
         </footer>
       </div>
     </div>
@@ -124,7 +124,7 @@ function Header({ user, onLogout, setView }) {
           <h1 className="text-2xl font-semibold text-gray-900">
             Kotak Saran Mahasiswa
           </h1>
-          <p className="text-sm text-gray-500">Sampaikan aspirasi kampus Anda</p>
+          <p className="text-sm text-gray-500">Sampaikan aspirasi kalian!</p>
         </div>
       </div>
 
