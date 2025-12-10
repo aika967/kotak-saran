@@ -137,35 +137,20 @@ function Header({ user, onLogout, setView }) {
         )}
 
         {user ? (
-          <>
-            <button
-              onClick={onLogout}
-              className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
-            >
-              Logout
-            </button>
-
-            <button
-              onClick={() => setView("dashboard")}
-              className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
-            >
-              Dashboard
-            </button>
-          </>
-        ) : (
           <button
-            onClick={() => setView("login")}
+            onClick={onLogout}
             className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
           >
-            Login
+            Logout
           </button>
-        )}
+        ) : null}
 
         <img src="/logo.png" alt="logo" className="w-12 h-12 object-contain" />
       </div>
     </div>
   );
 }
+
 
 /* ---------------------------
    Home
