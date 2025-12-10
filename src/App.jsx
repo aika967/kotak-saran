@@ -1,6 +1,5 @@
-import KotakSaranApp from "./KotakSaranApp.jsx";
+import KotakSaranApp from "./KotakSaranApp";
 
 export default function App() {
   return <KotakSaranApp />;
 }
-

@@ -1,48 +1,60 @@
+// src/KotakSaranApp.jsx
 import React, { useState, useEffect } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-// Kotak Saran - Single-file React app (use inside a create-react-app / Vite project)
-// Tailwind CSS assumed available. Recharts used for simple chart.
-
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-
-const ROLES = { STUDENT: "mahasiswa", ADMIN: "admin", LEADER: "pimpinan" };
-
-const STORAGE_KEYS = {
-  SUGGESTIONS: "ks_suggestions_v1",
-  USERS: "ks_users_v1",
+const ROLES = {
+  STUDENT: "mahasiswa",
+  ADMIN: "admin",
+  LEADER: "pimpinan",
 };
-
-// Simple seeded admin user
-const seedUsers = () => [
-  { id: 1, name: "Admin Fakultas", username: "admin", password: "admin123", role: ROLES.ADMIN },
-  { id: 2, name: "Pimpinan Fakultas", username: "pimpinan", password: "pimpinan123", role: ROLES.LEADER },
-];
-
-function saveToStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-function loadFromStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch (e) {
-    return fallback;
-  }
-}
 
 export default function KotakSaranApp() {
   const [user, setUser] = useState(null);
-  const [users, setUsers] = useState(() => loadFromStorage(STORAGE_KEYS.USERS, seedUsers()));
-  const [suggestions, setSuggestions] = useState(() => loadFromStorage(STORAGE_KEYS.SUGGESTIONS, []));
+  const [suggestions, setSuggestions] = useState([]);
   const [view, setView] = useState("home");
 
+  // akun demo
+  const [users] = useState([
+    {
+      id: 1,
+      name: "Admin Fakultas",
+      username: "admin",
+      password: "admin123",
+      role: ROLES.ADMIN,
+    },
+    {
+      id: 2,
+      name: "Pimpinan Fakultas",
+      username: "pimpinan",
+      password: "pimpinan123",
+      role: ROLES.LEADER,
+    },
+  ]);
+
+  /* ---------------------------
+     LOCAL STORAGE HANDLER
+  --------------------------- */
+
+  function loadData() {
+    const saved = localStorage.getItem("suggestions");
+    if (saved) setSuggestions(JSON.parse(saved));
+  }
+
+  function saveData(newData) {
+    setSuggestions(newData);
+    localStorage.setItem("suggestions", JSON.stringify(newData));
+  }
+
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.USERS, users);
-  }, [users]);
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.SUGGESTIONS, suggestions);
-  }, [suggestions]);
+    loadData();
+  }, []);
 
   const logout = () => {
     setUser(null);
@@ -52,62 +64,62 @@ export default function KotakSaranApp() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-5xl mx-auto bg-white shadow-md rounded-2xl p-6">
+
         <Header user={user} onLogout={logout} setView={setView} />
 
         <main className="mt-6">
-          {view === "home" && (
-            <Home setView={setView} user={user} />
-          )}
+          {view === "home" && <Home setView={setView} user={user} />}
 
           {view === "submit" && (
             <SubmitForm
-                setView={setView}
-                onSubmit={(s) =>
-                    setSuggestions((prev) => [{ ...s, id: Date.now() }, ...prev])
-                }
+              setView={setView}
+              onSubmit={(newList) => saveData(newList)}
             />
-        )}
+          )}
 
           {view === "login" && (
-  <Login
-    users={users}
-    setView={setView}
-    onLogin={(u) => {
-      setUser(u);
-      setView("dashboard");
-    }}
-  />
-)}
-
-
-          {view === "dashboard" && user && (user.role === ROLES.ADMIN ? (
-            <AdminDashboard
-              suggestions={suggestions}
-              setSuggestions={setSuggestions}
+            <Login
               users={users}
-              setUsers={setUsers}
+              setView={setView}
+              onLogin={(u) => {
+                setUser(u);
+                setView("dashboard");
+              }}
             />
-          ) : user.role === ROLES.LEADER ? (
-            <LeaderDashboard suggestions={suggestions} />
-          ) : (
-            <p className="text-sm text-gray-600">Dashboard tidak tersedia untuk peran ini.</p>
-          ))}
+          )}
+
+          {view === "dashboard" && user && (
+            <>
+              {user.role === ROLES.ADMIN && (
+                <AdminDashboard
+                  suggestions={suggestions}
+                  saveData={saveData}
+                />
+              )}
+
+              {user.role === ROLES.LEADER && (
+                <LeaderDashboard suggestions={suggestions} />
+              )}
+            </>
+          )}
         </main>
 
-        <footer className="mt-8 text-center text-xs text-gray-500">Kotak Saran Mahasiswa — Prototype</footer>
+        <footer className="mt-8 text-center text-xs text-gray-500">
+          Kotak Saran Mahasiswa — Mode Lokal
+        </footer>
       </div>
     </div>
   );
 }
 
+/* ---------------------------
+   Header
+--------------------------- */
 function Header({ user, onLogout, setView }) {
   return (
     <div className="flex items-center justify-between p-4 mb-6 bg-white shadow-md rounded-xl">
-
-      {/* KIRI = JUDUL + EMOJI */}
       <div className="flex items-center gap-3">
         <div className="text-indigo-600 text-3xl">🎓</div>
-
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">
             Kotak Saran Mahasiswa
@@ -116,49 +128,57 @@ function Header({ user, onLogout, setView }) {
         </div>
       </div>
 
-      {/* KANAN = USER + LOGO */}
       <div className="flex items-center gap-4">
 
-        {/* User info jika login */}
         {user && (
           <span className="text-sm text-gray-700 bg-gray-100 px-3 py-1 rounded-xl">
             {user.name} ({user.role})
           </span>
         )}
 
-        {/* Tombol Logout */}
-        {user && (
+        {user ? (
+          <>
+            <button
+              onClick={onLogout}
+              className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
+            >
+              Logout
+            </button>
+
+            <button
+              onClick={() => setView("dashboard")}
+              className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
+            >
+              Dashboard
+            </button>
+          </>
+        ) : (
           <button
-            onClick={onLogout}
+            onClick={() => setView("login")}
             className="px-3 py-1 border rounded-xl shadow-sm hover:bg-gray-50 transition"
           >
-            Logout
+            Login
           </button>
         )}
 
-        {/* Logo Kampus */}
-        <img
-          src="/logo.png"
-          alt="Logo Kampus"
-          className="w-12 h-12 object-contain"
-        />
+        <img src="/logo.png" alt="logo" className="w-12 h-12 object-contain" />
       </div>
-
     </div>
   );
 }
 
+/* ---------------------------
+   Home
+--------------------------- */
 function Home({ setView, user }) {
   return (
     <div className="flex flex-col items-center justify-center py-16">
-
       <h1 className="text-3xl font-semibold text-gray-800 mb-8">
         Selamat Datang di Kotak Saran Mahasiswa
       </h1>
 
       <div className="flex flex-col gap-4 w-full max-w-sm">
 
-        {/* Tombol Kirim Aspirasi */}
         <button
           className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-lg shadow hover:bg-indigo-700 transition"
           onClick={() => setView("submit")}
@@ -166,7 +186,6 @@ function Home({ setView, user }) {
           Kirim Aspirasi
         </button>
 
-        {/* Jika belum login, tampilkan tombol Login */}
         {!user && (
           <button
             className="px-6 py-3 bg-white border rounded-xl text-lg shadow hover:bg-gray-50 transition"
@@ -176,7 +195,6 @@ function Home({ setView, user }) {
           </button>
         )}
 
-        {/* Jika sudah login, tampilkan tombol Dashboard */}
         {user && (
           <button
             className="px-6 py-3 bg-white border rounded-xl text-lg shadow hover:bg-gray-50 transition"
@@ -185,13 +203,14 @@ function Home({ setView, user }) {
             Buka Dashboard
           </button>
         )}
-
       </div>
     </div>
   );
 }
 
-
+/* ---------------------------
+   SubmitForm (LOCAL MODE)
+--------------------------- */
 function SubmitForm({ onSubmit, setView }) {
   const [nama, setNama] = useState("");
   const [kategori, setKategori] = useState("Fasilitas");
@@ -202,12 +221,14 @@ function SubmitForm({ onSubmit, setView }) {
 
   const handleSend = (e) => {
     e.preventDefault();
+
     if (!judul.trim() || !isi.trim()) {
       setMessage({ type: "error", text: "Judul dan isi wajib diisi." });
       return;
     }
 
-    const payload = {
+    const newItem = {
+      id: Date.now(),
       nama: anon ? "Anonim" : nama || "Anonim",
       kategori,
       judul,
@@ -216,7 +237,13 @@ function SubmitForm({ onSubmit, setView }) {
       tanggal: new Date().toISOString(),
     };
 
-    onSubmit(payload);
+    const existing = JSON.parse(localStorage.getItem("suggestions") || "[]");
+    const updated = [newItem, ...existing];
+
+    localStorage.setItem("suggestions", JSON.stringify(updated));
+
+    if (onSubmit) onSubmit(updated);
+
     setMessage({ type: "success", text: "Aspirasi berhasil dikirim!" });
 
     setNama("");
@@ -228,37 +255,41 @@ function SubmitForm({ onSubmit, setView }) {
 
   return (
     <form className="space-y-4 card max-w-xl mx-auto" onSubmit={handleSend}>
+      <h2 className="text-xl font-semibold">Formulir Pengajuan Aspirasi</h2>
 
-      <h2 className="text-xl font-semibold text-gray-900">
-        Formulir Pengajuan Aspirasi
-      </h2>
-
-      {/* Mode Pengiriman */}
       <div>
         <label className="block text-sm font-medium">Mode pengiriman</label>
         <div className="flex gap-4 mt-1 text-sm">
           <label>
-            <input type="radio" checked={anon} onChange={() => setAnon(true)} /> Anonim
+            <input type="radio" checked={anon} onChange={() => setAnon(true)} />{" "}
+            Anonim
           </label>
           <label>
-            <input type="radio" checked={!anon} onChange={() => setAnon(false)} /> Terdaftar
+            <input
+              type="radio"
+              checked={!anon}
+              onChange={() => setAnon(false)}
+            />{" "}
+            Terdaftar
           </label>
         </div>
       </div>
 
-      {/* Nama */}
       {!anon && (
         <div>
           <label className="block text-sm font-medium">Nama</label>
-          <input className="input" value={nama} onChange={(e) => setNama(e.target.value)} />
+          <input
+            className="w-full border rounded px-3 py-2"
+            value={nama}
+            onChange={(e) => setNama(e.target.value)}
+          />
         </div>
       )}
 
-      {/* Kategori */}
       <div>
         <label className="block text-sm font-medium">Kategori</label>
         <select
-          className="select"
+          className="w-full border rounded px-3 py-2"
           value={kategori}
           onChange={(e) => setKategori(e.target.value)}
         >
@@ -269,37 +300,41 @@ function SubmitForm({ onSubmit, setView }) {
         </select>
       </div>
 
-      {/* Judul */}
       <div>
         <label className="block text-sm font-medium">Judul</label>
-        <input className="input" value={judul} onChange={(e) => setJudul(e.target.value)} />
+        <input
+          className="w-full border rounded px-3 py-2"
+          value={judul}
+          onChange={(e) => setJudul(e.target.value)}
+        />
       </div>
 
-      {/* Isi */}
       <div>
         <label className="block text-sm font-medium">Isi Aspirasi</label>
         <textarea
-          className="input"
+          className="w-full border rounded px-3 py-2"
           rows={6}
           value={isi}
           onChange={(e) => setIsi(e.target.value)}
         />
       </div>
 
-      {/* Tombol Aksi */}
-      <div className="flex flex-wrap gap-3">
-        <button className="btn-primary">Kirim</button>
+      <div className="flex gap-3 items-center">
+        <button className="px-4 py-2 bg-indigo-600 text-white rounded">
+          Kirim
+        </button>
 
         <button
           type="button"
+          className="px-4 py-2 border rounded"
           onClick={() => {
             setNama("");
             setKategori("Fasilitas");
             setJudul("");
             setIsi("");
             setAnon(true);
+            setMessage(null);
           }}
-          className="btn-secondary"
         >
           Reset
         </button>
@@ -307,18 +342,16 @@ function SubmitForm({ onSubmit, setView }) {
         <button
           type="button"
           onClick={() => setView("home")}
-          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl shadow transition"
+          className="px-4 py-2 bg-gray-200 rounded"
         >
-          ← Kembali ke Beranda
+          ← Kembali
         </button>
       </div>
 
-      {/* Pesan */}
       {message && (
         <p
           className={
-            "text-sm mt-2 " +
-            (message.type === "error" ? "text-red-600" : "text-green-600")
+            message.type === "error" ? "text-red-600" : "text-green-600"
           }
         >
           {message.text}
@@ -328,6 +361,9 @@ function SubmitForm({ onSubmit, setView }) {
   );
 }
 
+/* ---------------------------
+   Login
+--------------------------- */
 function Login({ users, onLogin, setView }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -335,18 +371,21 @@ function Login({ users, onLogin, setView }) {
 
   const handle = (e) => {
     e.preventDefault();
+
     const u = users.find(
       (x) => x.username === username && x.password === password
     );
+
     if (!u) {
       setErr("Username atau password salah.");
       return;
     }
+
     onLogin(u);
   };
 
   return (
-    <form onSubmit={handle} className="max-w-sm">
+    <form onSubmit={handle} className="max-w-sm space-y-3">
       <h2 className="text-lg font-medium">Login Admin / Pimpinan</h2>
 
       <div>
@@ -368,54 +407,88 @@ function Login({ users, onLogin, setView }) {
         />
       </div>
 
-      <div className="mt-3 flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <button className="px-4 py-2 bg-indigo-600 text-white rounded">
           Login
         </button>
 
-        {/* Tombol kembali ke beranda */}
         <button
           type="button"
           onClick={() => setView("home")}
-          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded shadow"
+          className="px-4 py-2 bg-gray-200 rounded"
         >
           ← Kembali ke Beranda
         </button>
       </div>
 
-      {err && <p className="text-red-600 text-sm mt-2">{err}</p>}
+      {err && <p className="text-red-600 text-sm">{err}</p>}
     </form>
   );
 }
 
-function AdminDashboard({ suggestions, setSuggestions, users, setUsers }) {
-  const [filter, setFilter] = useState("all");
+/* ---------------------------
+   Admin Dashboard
+--------------------------- */
+function AdminDashboard({ suggestions, saveData }) {
+  // statistik
+  const stats = suggestions.reduce((acc, s) => {
+    acc[s.kategori] = (acc[s.kategori] || 0) + 1;
+    return acc;
+  }, {});
 
-  const updateStatus = (id, status) => {
-    setSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
-  };
-  const remove = (id) => setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  const chartData = Object.keys(stats).map((k) => ({
+    name: k,
+    value: stats[k],
+  }));
 
+  // update status
+  function updateStatus(id, status) {
+    const updated = suggestions.map((s) =>
+      s.id === id ? { ...s, status } : s
+    );
+    saveData(updated);
+  }
+
+  // hapus
+  function removeRow(id) {
+    const updated = suggestions.filter((s) => s.id !== id);
+    saveData(updated);
+  }
+
+  // export CSV
   const exportCSV = () => {
-    const header = ["id","nama","kategori","judul","isi","status","tanggal"];
-    const rows = suggestions.map(s => header.map(h => JSON.stringify(s[h] ?? "")).join(','));
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const header = [
+      "id",
+      "nama",
+      "kategori",
+      "judul",
+      "isi",
+      "status",
+      "tanggal",
+    ];
+    const rows = suggestions.map((s) =>
+      header.map((h) => JSON.stringify(s[h] ?? "")).join(",")
+    );
+
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'laporan_aspirasi.csv'; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "laporan_aspirasi.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
-
-  const stats = suggestions.reduce((acc, cur) => { acc[cur.kategori] = (acc[cur.kategori]||0)+1; return acc; }, {});
-  const chartData = Object.keys(stats).map(k => ({ name: k, value: stats[k] }));
-
-  const filtered = suggestions.filter(s => filter === 'all' ? true : s.status === filter);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Dashboard Admin</h2>
+
         <div className="flex gap-2">
-          <button onClick={exportCSV} className="px-3 py-1 border rounded">Ekspor CSV</button>
+          <button onClick={exportCSV} className="px-3 py-1 border rounded">
+            Ekspor CSV
+          </button>
         </div>
       </div>
 
@@ -428,23 +501,17 @@ function AdminDashboard({ suggestions, setSuggestions, users, setUsers }) {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="value" />
+                <Bar dataKey="value" fill="#6366f1" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="p-3 border rounded">
-          <h3 className="font-semibold">Filter & Statistik</h3>
-          <div className="mt-3 flex items-center gap-3">
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border rounded px-2 py-1">
-              <option value="all">Semua</option>
-              <option value="baru">Baru</option>
-              <option value="diproses">Diproses</option>
-              <option value="selesai">Selesai</option>
-            </select>
-            <div className="text-sm text-gray-600">Total aspirasi: {suggestions.length}</div>
-          </div>
+          <h3 className="font-semibold">Statistik</h3>
+          <p className="mt-3 text-sm text-gray-600">
+            Total aspirasi: {suggestions.length}
+          </p>
         </div>
       </div>
 
@@ -460,21 +527,41 @@ function AdminDashboard({ suggestions, setSuggestions, users, setUsers }) {
               <th className="p-2 text-left">Aksi</th>
             </tr>
           </thead>
+
           <tbody>
-            {filtered.map(s => (
+            {suggestions.map((s) => (
               <tr key={s.id} className="border-b">
                 <td className="p-2">{s.id}</td>
                 <td className="p-2">{s.nama}</td>
                 <td className="p-2">{s.kategori}</td>
                 <td className="p-2">{s.judul}</td>
                 <td className="p-2">{s.status}</td>
+
                 <td className="p-2">
                   <div className="flex gap-2">
-                    <button onClick={() => updateStatus(s.id, 'diproses')} className="px-2 py-1 border rounded text-xs">Proses</button>
-                    <button onClick={() => updateStatus(s.id, 'selesai')} className="px-2 py-1 border rounded text-xs">Selesai</button>
-                    <button onClick={() => remove(s.id)} className="px-2 py-1 border rounded text-xs">Hapus</button>
+                    <button
+                      onClick={() => updateStatus(s.id, "diproses")}
+                      className="px-2 py-1 border rounded text-xs"
+                    >
+                      Proses
+                    </button>
+
+                    <button
+                      onClick={() => updateStatus(s.id, "selesai")}
+                      className="px-2 py-1 border rounded text-xs"
+                    >
+                      Selesai
+                    </button>
+
+                    <button
+                      onClick={() => removeRow(s.id)}
+                      className="px-2 py-1 border rounded text-xs"
+                    >
+                      Hapus
+                    </button>
                   </div>
                 </td>
+
               </tr>
             ))}
           </tbody>
@@ -484,52 +571,54 @@ function AdminDashboard({ suggestions, setSuggestions, users, setUsers }) {
   );
 }
 
+/* ---------------------------
+   LeaderDashboard (read-only)
+--------------------------- */
 function LeaderDashboard({ suggestions }) {
-  // Statistik kategori (tetap dipakai)
-  const stats = suggestions.reduce((acc, cur) => {
-    acc[cur.kategori] = (acc[cur.kategori] || 0) + 1;
+  const stats = suggestions.reduce((acc, s) => {
+    acc[s.kategori] = (acc[s.kategori] || 0) + 1;
     return acc;
   }, {});
 
   return (
     <div className="space-y-6">
+      <h2 className="text-xl font-semibold">Dashboard Pimpinan Fakultas</h2>
+      <p className="text-sm text-gray-600">
+        Ringkasan dan daftar aspirasi mahasiswa.
+      </p>
 
-      {/* Judul */}
-      <div>
-        <h2 className="text-xl font-semibold">Dashboard Pimpinan Fakultas</h2>
-        <p className="text-sm text-gray-600">
-          Ringkasan dan daftar aspirasi mahasiswa.
-        </p>
-      </div>
-
-      {/* Rekap kategori */}
       <div className="grid md:grid-cols-3 gap-4">
         {Object.entries(stats).map(([k, v]) => (
-          <div key={k} className="p-4 border rounded-xl bg-white shadow-sm">
-            <h3 className="font-semibold text-gray-800">{k}</h3>
+          <div
+            key={k}
+            className="p-4 border rounded-xl bg-white shadow-sm"
+          >
+            <h3 className="font-semibold">{k}</h3>
             <div className="text-3xl font-bold text-indigo-600">{v}</div>
           </div>
         ))}
       </div>
 
-      {/* TABEL ASPIRASI (READ ONLY) */}
       <div className="overflow-x-auto mt-6">
-        <table className="min-w-full border text-sm">
+        <table className="min-w-full text-sm border">
           <thead className="bg-slate-100">
             <tr>
-              <th className="p-2 text-left">Nama</th>
-              <th className="p-2 text-left">Kategori</th>
-              <th className="p-2 text-left">Judul</th>
-              <th className="p-2 text-left">Isi</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-left">Tanggal</th>
+              <th className="p-2">Nama</th>
+              <th className="p-2">Kategori</th>
+              <th className="p-2">Judul</th>
+              <th className="p-2">Isi</th>
+              <th className="p-2">Status</th>
+              <th className="p-2">Tanggal</th>
             </tr>
           </thead>
 
           <tbody>
             {suggestions.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-4 text-center text-gray-500">
+                <td
+                  colSpan="6"
+                  className="p-4 text-center text-gray-500"
+                >
                   Belum ada aspirasi.
                 </td>
               </tr>
@@ -540,8 +629,8 @@ function LeaderDashboard({ suggestions }) {
                   <td className="p-2">{s.kategori}</td>
                   <td className="p-2">{s.judul}</td>
                   <td className="p-2">{s.isi}</td>
-                  <td className="p-2 capitalize">{s.status}</td>
-                  <td className="p-2 text-xs">
+                  <td className="p-2">{s.status}</td>
+                  <td className="p-2">
                     {new Date(s.tanggal).toLocaleString()}
                   </td>
                 </tr>
@@ -550,7 +639,6 @@ function LeaderDashboard({ suggestions }) {
           </tbody>
         </table>
       </div>
-
     </div>
   );
 }
