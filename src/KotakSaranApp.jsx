@@ -1,4 +1,4 @@
-// src/KotakSaranApp.jsx
+// src/KotakSaranApp.jsx (VERSI LOCAL STORAGE)
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -10,8 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Impor Supabase Client
-import { supabase } from "./supabaseClient";
+// Impor Supabase Client DIHAPUS
 
 const ROLES = {
   STUDENT: "mahasiswa",
@@ -23,7 +22,7 @@ export default function KotakSaranApp() {
   const [user, setUser] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [view, setView] = useState("home");
-  const [loading, setLoading] = useState(false); // Tambah state loading
+  const [loading, setLoading] = useState(false); // Loading state dipertahankan, tapi tidak benar-benar digunakan untuk local storage
 
   // akun demo
   const [users] = useState([
@@ -44,33 +43,29 @@ export default function KotakSaranApp() {
   ]);
 
   /* ---------------------------
-      SUPABASE HANDLER
+      LOCAL STORAGE HANDLER (DIPULIHKAN)
   --------------------------- */
 
-  // FUNGSI MENGAMBIL DATA DARI SUPABASE (SELECT)
-  const fetchSuggestions = useCallback(async () => {
+  // FUNGSI MUAT DATA DARI LOCAL STORAGE (SELECT)
+  const fetchSuggestions = useCallback(() => {
     setLoading(true);
-    
-    const { data, error } = await supabase
-      .from('kotak') // ✔️ MENGGUNAKAN NAMA TABEL 'kotak'
-      .select('*')
-      .order('created_at', { ascending: false }); 
-
-    if (error) {
-      console.error("Gagal memuat saran dari Supabase:", error);
+    const saved = localStorage.getItem("suggestions");
+    if (saved) {
+      setSuggestions(JSON.parse(saved));
     } else {
-      setSuggestions(data);
-    }
+      setSuggestions([]);
+    }
     setLoading(false);
   }, []);
 
-  // FUNGSI INI HANYA MEMICU MUAT ULANG DATA
-  async function updateSuggestionData(updatedList) {
-    await fetchSuggestions();
+  // FUNGSI UNTUK MENYIMPAN/UPDATE KE LOCAL STORAGE
+  function updateSuggestionData(newData) {
+    setSuggestions(newData);
+    localStorage.setItem("suggestions", JSON.stringify(newData));
   }
 
   useEffect(() => {
-    fetchSuggestions();
+    fetchSuggestions(); // Muat data saat komponen pertama kali dipasang
   }, [fetchSuggestions]);
 
   const logout = () => {
@@ -89,6 +84,7 @@ export default function KotakSaranApp() {
           {view === "submit" && (
             <SubmitForm
               setView={setView}
+              // Setelah berhasil SUBMIT, panggil fungsi muat ulang
               onSubmitSuccess={fetchSuggestions} 
             />
           )}
@@ -110,6 +106,7 @@ export default function KotakSaranApp() {
               {!loading && user.role === ROLES.ADMIN && (
                 <AdminDashboard
                   suggestions={suggestions}
+                  // Panggil fungsi local storage update
                   updateSuggestionData={updateSuggestionData}
                   fetchSuggestions={fetchSuggestions}
                 />
@@ -123,7 +120,7 @@ export default function KotakSaranApp() {
         </main>
 
         <footer className="mt-8 text-center text-xs text-gray-500">
-          Menggunakan Vercel (Frontend) dan Supabase (Backend/Database)
+          Menggunakan LOCAL STORAGE
         </footer>
       </div>
     </div>
@@ -269,7 +266,7 @@ function Login({ users, onLogin, setView }) {
 }
 
 /* ---------------------------
-   SubmitForm (SUPABASE MODE)
+   SubmitForm (LOCAL STORAGE)
 --------------------------- */
 function SubmitForm({ onSubmitSuccess, setView }) {
   const [nama, setNama] = useState("");
@@ -278,9 +275,9 @@ function SubmitForm({ onSubmitSuccess, setView }) {
   const [isi, setIsi] = useState("");
   const [anon, setAnon] = useState(true);
   const [message, setMessage] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Dipertahankan untuk tombol
 
-  const handleSend = async (e) => {
+  const handleSend = (e) => { // DIKEMBALIKAN menjadi fungsi NON-ASYNC
     e.preventDefault();
 
     if (!judul.trim() || !isi.trim()) {
@@ -292,6 +289,7 @@ function SubmitForm({ onSubmitSuccess, setView }) {
     setMessage(null);
 
     const newItem = {
+      id: Date.now(), // Menggunakan ID berbasis waktu lokal
       nama: anon ? "Anonim" : nama || "Anonim",
       kategori,
       judul,
@@ -300,26 +298,25 @@ function SubmitForm({ onSubmitSuccess, setView }) {
       tanggal: new Date().toISOString(), 
     };
 
-    // --- LOGIKA SUPABASE INSERT ---
-    const { error } = await supabase
-      .from('kotak') // ✔️ MENGGUNAKAN NAMA TABEL 'kotak'
-      .insert([newItem]);
+    // --- LOGIKA LOCAL STORAGE INSERT (DIPULIHKAN) ---
+    const existing = JSON.parse(localStorage.getItem("suggestions") || "[]");
+    const updated = [newItem, ...existing];
 
-    if (error) {
-      console.error("Error mengirim saran ke Supabase:", error);
-      setMessage({ type: "error", text: "Gagal mengirim aspirasi. Cek konsol." });
-    } else {
-      setMessage({ type: "success", text: "Aspirasi berhasil dikirim dan tersimpan!" });
-      if (onSubmitSuccess) { 
-        onSubmitSuccess(); 
-      }
-      // Reset Form
-      setNama("");
-      setKategori("Fasilitas");
-      setJudul("");
-      setIsi("");
-      setAnon(true);
+    localStorage.setItem("suggestions", JSON.stringify(updated));
+
+    // Panggil fungsi muat ulang
+    if (onSubmitSuccess) { 
+      onSubmitSuccess(); 
     }
+
+    setMessage({ type: "success", text: "Aspirasi berhasil dikirim dan tersimpan!" });
+
+    setNama("");
+    setKategori("Fasilitas");
+    setJudul("");
+    setIsi("");
+    setAnon(true);
+
     setIsSubmitting(false);
   };
 
@@ -391,9 +388,9 @@ function SubmitForm({ onSubmitSuccess, setView }) {
 
       <div className="flex gap-3 items-center">
         <button 
-          className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-          disabled={isSubmitting}
-        >
+          className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? 'Mengirim...' : 'Kirim'}
         </button>
 
@@ -502,9 +499,10 @@ function Login({ users, onLogin, setView }) {
 }
 
 /* ---------------------------
-   Admin Dashboard (UPDATE)
+   Admin Dashboard (LOCAL STORAGE)
 --------------------------- */
 function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions }) {
+  // Statistik tidak berubah
   const stats = suggestions.reduce((acc, s) => {
     acc[s.kategori] = (acc[s.kategori] || 0) + 1;
     return acc;
@@ -515,34 +513,18 @@ function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions })
     value: stats[k],
   }));
 
-  // FUNGSI UNTUK UPDATE STATUS DI SUPABASE
-  async function updateStatus(id, status) {
-    const { error } = await supabase
-      .from('kotak') // ✔️ MENGGUNAKAN NAMA TABEL 'kotak'
-      .update({ status: status }) 
-      .eq('id', id); 
-
-    if (error) {
-      console.error("Gagal mengupdate status:", error);
-    } else {
-      await fetchSuggestions(); 
-    }
+  // update status DENGAN LOCAL STORAGE
+  function updateStatus(id, status) {
+    const updated = suggestions.map((s) =>
+      s.id === id ? { ...s, status } : s
+    );
+    updateSuggestionData(updated); // Simpan ke local storage
   }
 
-  // FUNGSI UNTUK MENGHAPUS DI SUPABASE
-  async function removeRow(id) {
-    if (!window.confirm("Yakin ingin menghapus saran ini?")) return;
-
-    const { error } = await supabase
-      .from('kotak') // ✔️ MENGGUNAKAN NAMA TABEL 'kotak'
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error("Gagal menghapus saran:", error);
-    } else {
-      await fetchSuggestions();
-    }
+  // hapus DENGAN LOCAL STORAGE
+  function removeRow(id) {
+    const updated = suggestions.filter((s) => s.id !== id);
+    updateSuggestionData(updated); // Simpan ke local storage
   }
 
   // export CSV (TIDAK BERUBAH)
@@ -615,6 +597,7 @@ function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions })
               <th className="p-2 text-left">Kategori</th>
               <th className="p-2 text-left">Judul</th>
               <th className="p-2 text-left">Status</th>
+              <th className="p-2 text-left">Tanggal</th> 
               <th className="p-2 text-left">Aksi</th>
             </tr>
           </thead>
@@ -627,6 +610,10 @@ function AdminDashboard({ suggestions, updateSuggestionData, fetchSuggestions })
                 <td className="p-2">{s.kategori}</td>
                 <td className="p-2">{s.judul}</td>
                 <td className="p-2">{s.status}</td>
+                
+                <td className="p-2">
+                  {new Date(s.tanggal).toLocaleString()}
+                </td>
 
                 <td className="p-2">
                   <div className="flex gap-2">
